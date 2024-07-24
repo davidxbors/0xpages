@@ -9,6 +9,8 @@ pygmentsstyle = "monokai"
 pygmentscodefences = true
 pygmentscodefencesguesssyntax = true
 
+canonifyURLs = true
+
 # disqusShortname = "david"
 
 paginate=10 # articles per page
