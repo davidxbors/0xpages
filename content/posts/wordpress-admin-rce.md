@@ -27,7 +27,7 @@ The classic ways of getting a shell, documented on [hacktricks](https://book.hac
 1. Uploading a webshell as a plugin. The install will fail, but the webshell will be available in the media section.
 
 However, with modern versions of WordPress the two well known staple methods don't work as expected anymore.
-Plugins required to upload a zip, and in case of install failure they will simply save the zip archive in the media section.
+Installing a plugin now requires to upload a zip, and in case of install failure WordPress will simply save the zip archive in the media section.
 Themes allow you to add custom code to them, but (at least in my case) it is not possible to execute a webshell via this method anymore.
 
 **The solution?**
