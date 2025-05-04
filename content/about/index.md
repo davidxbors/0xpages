@@ -12,7 +12,7 @@ Contact: [borsdavid@proton.me](mailto:borsdavid@proton.me)
 
 Github: [davidxbors](https://github.com/davidxbors)
 
-Currently working @ [Pentest-tools.com](https://pentest-tools.com).
+LinkedIn: [David Bors](https://www.linkedin.com/in/davidxbors/)
 
 BS @ [UPB-ACS](https://acs.pub.ro/en/) 2020-2024.
 
@@ -24,3 +24,12 @@ MS @ [UPB-ACS](https://acs.pub.ro/en/) 2024-2026.
 * CVE-2025-26127
 * [GHSA-564j-v29w-rqr6](https://github.com/khoj-ai/khoj/security/advisories/GHSA-564j-v29w-rqr6)
 * [Quebec Gov Cyber Contributors](https://www.cyber.gouv.qc.ca/en/report/contributors)
+
+**Certifications**
+
+* OSCP+
+* OSCP
+* OSWP
+* CRTP
+* SCH ([Smart Contracts Hacker](https://smartcontractshacking.com/))
+* eJPT
